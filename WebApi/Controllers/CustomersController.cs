@@ -6,6 +6,7 @@ using System.Web.Http;
 using WebApi.Models;
 using WebApi.ModelViews;
 using System.Net;
+using System.Data.Entity;
 
 namespace WebApi.Controllers
 {
@@ -16,7 +17,9 @@ namespace WebApi.Controllers
         public HttpResponseMessage Get()
         {
             IList<CustomerModelViews> customers = null;
-            customers = db.Customers.Include("BookingRoom")
+            customers = db.Customers
+                .OrderByDescending(x => x.CustomerId)
+                .Include("BookingRoom")
                 .Select(c => new CustomerModelViews()
                 {
                     CustomerId = c.CustomerId,
@@ -38,7 +41,7 @@ namespace WebApi.Controllers
         public HttpResponseMessage Get(System.Guid Id)
         {
 
-            IList<CustomerModelViews> customers = null;
+            CustomerModelViews customers = null;
             customers = db.Customers.Include("BookingRoom")
                 .Where(x => x.CustomerId == Id)
                 .Select(c => new CustomerModelViews()
@@ -55,7 +58,7 @@ namespace WebApi.Controllers
                         Price = b.Price,
                         Amount = b.Amount
                     }).ToList<BookingRooModelViews>()
-                }).ToList<CustomerModelViews>();
+                }).FirstOrDefault<CustomerModelViews>();
             return Request.CreateResponse(HttpStatusCode.OK, customers);
         }
         [HttpPost]
@@ -95,6 +98,15 @@ namespace WebApi.Controllers
             if (customer == null)
             {
                 return Request.CreateResponse(HttpStatusCode.NotFound);
+            }            
+            if (customer.BookingRooms.Count > 0)
+            {
+                List<BookingRoom> bookings = db.BookingRooms.Where(x => x.CustomerId == customer.CustomerId).ToList();
+                foreach (var booking in bookings)
+                {
+                    db.BookingRooms.Remove(booking);
+                    db.SaveChanges();
+                }
             }
             db.Customers.Remove(customer);
             db.SaveChanges();
